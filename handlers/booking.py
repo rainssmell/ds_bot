@@ -116,7 +116,7 @@ async def get_tz(msg: types.Message, state: FSMContext):
 
     await state.update_data(price=price)
 
-        addons_list = ", ".join(data["addons"]) if data["addons"] else "нет"
+    addons_list = ", ".join(data["addons"]) if data["addons"] else "нет"
 
     text = (
         f"🔥 Новая заявка!\n\n"
