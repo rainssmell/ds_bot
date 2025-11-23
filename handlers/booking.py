@@ -2,6 +2,8 @@ from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
+from aiogram.types import FSInputFile, InputMediaPhoto
+
 from keyboards.addons import addons_kb
 from keyboards.confirm import confirm_kb
 from services.calculator import calculate_price
@@ -29,7 +31,26 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
 
     await state.update_data(package=package, addons=[])
 
-    await callback.message.edit_text(
+    # отправляем альбом с тремя допами
+    media = [
+        InputMediaPhoto(
+            media=FSInputFile("media/petli.png"),
+            caption="Петлички — +990 ₽"
+        ),
+        InputMediaPhoto(
+            media=FSInputFile("media/svet.png"),
+            caption="Свет (3 источника) — +2900 ₽"
+        ),
+        InputMediaPhoto(
+            media=FSInputFile("media/montazh.png"),
+            caption="Доп. минута монтажа — +3900 ₽"
+        ),
+    ]
+
+    await callback.message.answer_media_group(media)
+
+    # сообщение с кнопками выбора допов
+    await callback.message.answer(
         "Пакет выбран.\nТеперь добавьте допы или нажмите «Готово»:",
         reply_markup=addons_kb()
     )
