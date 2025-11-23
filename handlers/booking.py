@@ -9,6 +9,12 @@ from keyboards.confirm import confirm_kb
 from services.calculator import calculate_price
 from config import ADMIN_ID
 
+ADDON_LABELS = {
+    "mics": "Петлички",
+    "light": "Свет",
+    "extra": "Доп. минута монтажа",
+}
+
 router = Router()
 
 
@@ -64,21 +70,27 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(Booking.waiting_for_addons)
 async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    addons = data["addons"]
+    addons = data.get("addons", [])
 
+    code = None
     if callback.data == "add_mics":
-        addons.append("Петлички")
+        code = "mics"
     elif callback.data == "add_light":
-        addons.append("Свет")
+        code = "light"
     elif callback.data == "add_extra":
-        addons.append("Доп. минута монтажа")
+        code = "extra"
     elif callback.data == "addons_done":
         await callback.message.edit_text("Введите дату съёмки — число и месяц:")
         await state.set_state(Booking.waiting_for_date)
         return
 
-    await state.update_data(addons=addons)
-    await callback.answer("Добавлено!")
+    if code:
+        if code not in addons:
+            addons.append(code)
+            await state.update_data(addons=addons)
+            await callback.answer("Добавлено!")
+        else:
+            await callback.answer("Уже добавлено", show_alert=False)
 
 
 # -----------------------------
@@ -138,7 +150,11 @@ async def get_tz(msg: types.Message, state: FSMContext):
     # кладём цену в стейт, чтобы потом забрать в final_confirm
     await state.update_data(price=price)
 
-    addons_list = ", ".join(data.get("addons", [])) if data.get("addons") else "нет"
+  addon_codes = data.get("addons", [])
+addons_list = (
+    ", ".join(ADDON_LABELS[c] for c in addon_codes)
+    if addon_codes else "нет"
+)
 
     # показываем пользователю итог
     await msg.answer(
