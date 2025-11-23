@@ -116,10 +116,10 @@ async def get_tz(msg: types.Message, state: FSMContext):
 
     await state.update_data(price=price)
 
-    addons_list = ", ".join(data["addons"]) if data["addons"] else "нет"
+        addons_list = ", ".join(data["addons"]) if data["addons"] else "нет"
 
-    await msg.answer(
-        f"Проверьте заявку:\n\n"
+    text = (
+        f"🔥 Новая заявка!\n\n"
         f"Пакет: {data['package']}\n"
         f"Допы: {addons_list}\n"
         f"Дата: {data['date']}\n"
@@ -127,11 +127,25 @@ async def get_tz(msg: types.Message, state: FSMContext):
         f"Телефон: {data['phone']}\n"
         f"Адрес: {data['address']}\n"
         f"ТЗ: {data['tz']}\n\n"
-        f"Стоимость: {price} ₽",
-        reply_markup=confirm_kb()
+        f"Стоимость: {data['price']} ₽"
     )
 
-    await state.set_state(Booking.waiting_for_confirm)
+    # Пытаемся отправить админу
+    try:
+        await callback.bot.send_message(ADMIN_ID, text)
+    except Exception:
+        pass  # если ADMIN_ID кривой — просто не падаем
+
+    # Дублируем тому, кто оставил заявку
+    await callback.bot.send_message(callback.from_user.id, text)
+
+    # Сообщение в чате с ботом
+    await callback.message.edit_text(
+        "Заявка создана!\n\nЯ свяжусь с вами в ближайшее время."
+    )
+
+    await state.clear()
+
 
 
 # -----------------------------
