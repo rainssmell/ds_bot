@@ -2,6 +2,7 @@ import os
 import asyncio
 from aiohttp import web
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN
 from handlers.start import router as start_router
@@ -14,7 +15,7 @@ async def healthcheck(request):
 
 async def run_bot():
     bot = Bot(token=BOT_TOKEN)
-    dp = Dispatcher()
+    dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(start_router)
     dp.include_router(booking_router)
     print("Бот запущен!")
