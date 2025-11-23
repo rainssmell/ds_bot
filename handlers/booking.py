@@ -1,8 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-
-from aiogram.types import FSInputFile, InputMediaPhoto
+from aiogram.types import FSInputFile
 
 from keyboards.addons import addons_kb
 from keyboards.confirm import confirm_kb
@@ -34,10 +33,9 @@ class Booking(StatesGroup):
 @router.callback_query(F.data.startswith("pkg_"))
 async def choose_package(callback: types.CallbackQuery, state: FSMContext):
     package = callback.data.replace("pkg_", "")
-
     await state.update_data(package=package, addons=[])
 
-    # одна общая картинка с допами
+    # одна картинка с допами
     photo = FSInputFile("media/addons.png")
     await callback.message.answer_photo(
         photo,
@@ -49,13 +47,14 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
         )
     )
 
-    # одно сообщение с кнопками допов (НЕ два)
+    # сообщение с кнопками допов
     await callback.message.answer(
         "Пакет выбран.\nТеперь добавьте допы или нажмите «Готово»:",
         reply_markup=addons_kb()
     )
 
     await state.set_state(Booking.waiting_for_addons)
+
 
 # -----------------------------
 # ДОПЫ
@@ -83,7 +82,7 @@ async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
             await state.update_data(addons=addons)
             await callback.answer("Добавлено!")
         else:
-            await callback.answer("Уже добавлено", show_alert=False)
+            await callback.answer("Уже добавлено")
 
 
 # -----------------------------
@@ -161,6 +160,7 @@ async def get_tz(msg: types.Message, state: FSMContext):
 
     await state.set_state(Booking.waiting_for_confirm)
 
+
 # -----------------------------
 # ПОДТВЕРЖДЕНИЕ
 # -----------------------------
@@ -173,7 +173,11 @@ async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
 
-    addons_list = ", ".join(data.get("addons", [])) if data.get("addons") else "нет"
+    addon_codes = data.get("addons", [])
+    addons_list = (
+        ", ".join(ADDON_LABELS[c] for c in addon_codes)
+        if addon_codes else "нет"
+    )
 
     text = (
         "🔥 Новая заявка!\n\n"
@@ -187,10 +191,8 @@ async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
         f"Стоимость: {data['price']} ₽"
     )
 
-    # отправляем тебе в личку
     await callback.bot.send_message(ADMIN_ID, text)
 
-    # отвечаем клиенту
     await callback.message.edit_text(
         "Заявка создана! Я свяжусь с вами в ближайшее время."
     )
