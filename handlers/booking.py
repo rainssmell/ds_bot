@@ -49,22 +49,13 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
         )
     )
 
-    # дальше — как и было: текст + кнопки допов
+    # одно сообщение с кнопками допов (НЕ два)
     await callback.message.answer(
         "Пакет выбран.\nТеперь добавьте допы или нажмите «Готово»:",
         reply_markup=addons_kb()
     )
 
     await state.set_state(Booking.waiting_for_addons)
-
-    # сообщение с кнопками выбора допов
-    await callback.message.answer(
-        "Пакет выбран.\nТеперь добавьте допы или нажмите «Готово»:",
-        reply_markup=addons_kb()
-    )
-
-    await state.set_state(Booking.waiting_for_addons)
-
 
 # -----------------------------
 # ДОПЫ
