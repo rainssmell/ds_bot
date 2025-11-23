@@ -37,23 +37,25 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
 
     await state.update_data(package=package, addons=[])
 
-    # отправляем альбом с тремя допами
-    media = [
-        InputMediaPhoto(
-            media=FSInputFile("media/petli.png"),
-            caption="Петлички — +990 ₽"
-        ),
-        InputMediaPhoto(
-            media=FSInputFile("media/svet.png"),
-            caption="Свет (3 источника) — +2900 ₽"
-        ),
-        InputMediaPhoto(
-            media=FSInputFile("media/montazh.png"),
-            caption="Доп. минута монтажа — +3900 ₽"
-        ),
-    ]
+    # одна общая картинка с допами
+    photo = FSInputFile("media/addons.png")
+    await callback.message.answer_photo(
+        photo,
+        caption=(
+            "Допы, которые можно добавить:\n\n"
+            "• Петлички — +990 ₽\n"
+            "• Свет (3 источника) — +2900 ₽\n"
+            "• Доп. минута монтажа — +3900 ₽"
+        )
+    )
 
-    await callback.message.answer_media_group(media)
+    # дальше — как и было: текст + кнопки допов
+    await callback.message.answer(
+        "Пакет выбран.\nТеперь добавьте допы или нажмите «Готово»:",
+        reply_markup=addons_kb()
+    )
+
+    await state.set_state(Booking.waiting_for_addons)
 
     # сообщение с кнопками выбора допов
     await callback.message.answer(
