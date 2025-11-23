@@ -9,6 +9,7 @@ from config import ADMIN_ID
 
 router = Router()
 
+
 class Booking(StatesGroup):
     waiting_for_addons = State()
     waiting_for_date = State()
@@ -41,7 +42,6 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
 # -----------------------------
 @router.callback_query(Booking.waiting_for_addons)
 async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
-
     data = await state.get_data()
     addons = data["addons"]
 
@@ -52,7 +52,7 @@ async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
     elif callback.data == "add_extra":
         addons.append("Доп. минута монтажа")
     elif callback.data == "addons_done":
-        await callback.message.edit_text("Введите дату съёмки в формате ГГГГ-ММ-ДД:")
+        await callback.message.edit_text("Введите дату съёмки — число и месяц:")
         await state.set_state(Booking.waiting_for_date)
         return
 
@@ -102,6 +102,7 @@ async def get_address(msg: types.Message, state: FSMContext):
 
 # -----------------------------
 # ТЗ
+# -----------------------------
 @router.message(Booking.waiting_for_tz)
 async def get_tz(msg: types.Message, state: FSMContext):
     # сохраняем ТЗ
@@ -134,30 +135,12 @@ async def get_tz(msg: types.Message, state: FSMContext):
 
     await state.set_state(Booking.waiting_for_confirm)
 
-    # Пытаемся отправить админу
-    try:
-        await callback.bot.send_message(ADMIN_ID, text)
-    except Exception:
-        pass  # если ADMIN_ID кривой — просто не падаем
-
-    # Дублируем тому, кто оставил заявку
-    await callback.bot.send_message(callback.from_user.id, text)
-
-    # Сообщение в чате с ботом
-    await callback.message.edit_text(
-        "Заявка создана!\n\nЯ свяжусь с вами в ближайшее время."
-    )
-
-    await state.clear()
-
-
 
 # -----------------------------
 # ПОДТВЕРЖДЕНИЕ
 # -----------------------------
 @router.callback_query(Booking.waiting_for_confirm)
 async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
-
     if callback.data == "cancel":
         await callback.message.edit_text("Заявка отменена.")
         await state.clear()
@@ -183,7 +166,9 @@ async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
     await callback.bot.send_message(ADMIN_ID, text)
 
     # отвечаем клиенту
-    await callback.message.edit_text("Заявка создана! Я свяжусь с вами в ближайшее время.")
+    await callback.message.edit_text(
+        "Заявка создана! Я свяжусь с вами в ближайшее время."
+    )
 
     await state.clear()
     await callback.answer()
