@@ -102,24 +102,25 @@ async def get_address(msg: types.Message, state: FSMContext):
 
 # -----------------------------
 # ТЗ
-# -----------------------------
 @router.message(Booking.waiting_for_tz)
 async def get_tz(msg: types.Message, state: FSMContext):
+    # сохраняем ТЗ
     await state.update_data(tz=msg.text.strip())
-
     data = await state.get_data()
 
+    # считаем цену
     price = calculate_price(
         data["package"],
-        data["addons"]
+        data.get("addons", [])
     )
-
+    # кладём цену в стейт, чтобы потом забрать в final_confirm
     await state.update_data(price=price)
 
-    addons_list = ", ".join(data["addons"]) if data["addons"] else "нет"
+    addons_list = ", ".join(data.get("addons", [])) if data.get("addons") else "нет"
 
-    text = (
-        f"🔥 Новая заявка!\n\n"
+    # показываем пользователю итог
+    await msg.answer(
+        f"Проверьте заявку:\n\n"
         f"Пакет: {data['package']}\n"
         f"Допы: {addons_list}\n"
         f"Дата: {data['date']}\n"
@@ -127,8 +128,11 @@ async def get_tz(msg: types.Message, state: FSMContext):
         f"Телефон: {data['phone']}\n"
         f"Адрес: {data['address']}\n"
         f"ТЗ: {data['tz']}\n\n"
-        f"Стоимость: {data['price']} ₽"
+        f"Стоимость: {price} ₽",
+        reply_markup=confirm_kb()
     )
+
+    await state.set_state(Booking.waiting_for_confirm)
 
     # Пытаемся отправить админу
     try:
@@ -152,7 +156,7 @@ async def get_tz(msg: types.Message, state: FSMContext):
 # ПОДТВЕРЖДЕНИЕ
 # -----------------------------
 @router.callback_query(Booking.waiting_for_confirm)
-async def confirm(callback: types.CallbackQuery, state: FSMContext):
+async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
 
     if callback.data == "cancel":
         await callback.message.edit_text("Заявка отменена.")
@@ -161,12 +165,10 @@ async def confirm(callback: types.CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
 
-    addons_list = ", ".join(data["addons"]) if data["addons"] else "нет"
+    addons_list = ", ".join(data.get("addons", [])) if data.get("addons") else "нет"
 
-    # Отправляем заявку тебе (в ADMIN_ID)
-    await callback.bot.send_message(
-        ADMIN_ID,
-        f"🔥 Новая заявка!\n\n"
+    text = (
+        "🔥 Новая заявка!\n\n"
         f"Пакет: {data['package']}\n"
         f"Допы: {addons_list}\n"
         f"Дата: {data['date']}\n"
@@ -177,9 +179,11 @@ async def confirm(callback: types.CallbackQuery, state: FSMContext):
         f"Стоимость: {data['price']} ₽"
     )
 
-    # Клиенту
-    await callback.message.edit_text(
-        "Заявка создана!\n\nЯ свяжусь с вами в ближайшее время."
-    )
+    # отправляем тебе в личку
+    await callback.bot.send_message(ADMIN_ID, text)
+
+    # отвечаем клиенту
+    await callback.message.edit_text("Заявка создана! Я свяжусь с вами в ближайшее время.")
 
     await state.clear()
+    await callback.answer()
