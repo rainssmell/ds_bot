@@ -138,25 +138,21 @@ async def get_address(msg: types.Message, state: FSMContext):
 # -----------------------------
 @router.message(Booking.waiting_for_tz)
 async def get_tz(msg: types.Message, state: FSMContext):
-    # сохраняем ТЗ
     await state.update_data(tz=msg.text.strip())
     data = await state.get_data()
 
-    # считаем цену
     price = calculate_price(
         data["package"],
         data.get("addons", [])
     )
-    # кладём цену в стейт, чтобы потом забрать в final_confirm
     await state.update_data(price=price)
 
-  addon_codes = data.get("addons", [])
-addons_list = (
-    ", ".join(ADDON_LABELS[c] for c in addon_codes)
-    if addon_codes else "нет"
-)
+    addon_codes = data.get("addons", [])
+    addons_list = (
+        ", ".join(ADDON_LABELS[c] for c in addon_codes)
+        if addon_codes else "нет"
+    )
 
-    # показываем пользователю итог
     await msg.answer(
         f"Проверьте заявку:\n\n"
         f"Пакет: {data['package']}\n"
@@ -171,7 +167,6 @@ addons_list = (
     )
 
     await state.set_state(Booking.waiting_for_confirm)
-
 
 # -----------------------------
 # ПОДТВЕРЖДЕНИЕ
