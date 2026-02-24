@@ -17,7 +17,7 @@ contact_keyboard = ReplyKeyboardMarkup(
 
 
 @router.message(CommandStart())
-async def start_handler(message: Message, state: FSMContext):
+async def start_handler(message: Message):
     await message.answer(
         "Чтобы продолжить, пожалуйста, отправьте ваш контакт 👇",
         reply_markup=contact_keyboard
@@ -25,7 +25,11 @@ async def start_handler(message: Message, state: FSMContext):
 
 
 @router.message(F.contact)
-async def contact_handler(message: Message, bot: Bot, state: FSMContext):
+async def contact_handler(
+    message: Message,
+    state: FSMContext,
+    notify_bot: Bot
+):
     contact = message.contact
 
     text = (
@@ -36,7 +40,12 @@ async def contact_handler(message: Message, bot: Bot, state: FSMContext):
         f"User ID: {message.from_user.id}"
     )
 
-    # уведомление тебе
-    await bot.send_message(ADMIN_ID, text)
+    # 👉 уведомление через ВТОРОЙ бот
+    await notify_bot.send_message(ADMIN_ID, text)
 
-    await message.answer("Спасибо! Заявка получена ✅")
+    # убираем клавиатуру
+    await message.answer("Контакт получен ✅")
+
+    # 👉 запускаем дальнейший сценарий
+    from handlers.booking import start_booking_flow
+    await start_booking_flow(message, state)
