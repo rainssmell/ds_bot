@@ -15,10 +15,8 @@ contact_keyboard = ReplyKeyboardMarkup(
     one_time_keyboard=True
 )
 
-
 @router.message(CommandStart())
 async def start_handler(message: Message, state: FSMContext):
-    # ставим состояние ожидания контакта
     await state.set_state(Booking.waiting_for_contact)
 
     await message.answer(
