@@ -1,4 +1,4 @@
-from aiogram import Router, types, F
+from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import FSInputFile, ReplyKeyboardRemove
@@ -7,7 +7,7 @@ from keyboards.addons import addons_kb
 from keyboards.confirm import confirm_kb
 from keyboards.packages import packages_kb
 from services.calculator import calculate_price
-from config import ADMIN_ID
+from config import ADMIN_ID, NOTIFY_BOT_TOKEN
 
 router = Router()
 
@@ -30,16 +30,15 @@ ADDON_LABELS = {
 }
 
 
-# =============================
-# КОНТАКТ
-# =============================
 @router.message(Booking.waiting_for_contact)
-async def get_contact(msg: types.Message, state: FSMContext, notify_bot: types.Bot):
+async def get_contact(msg: types.Message, state: FSMContext):
     if not msg.contact:
         await msg.answer("Пожалуйста, используйте кнопку для отправки контакта.")
         return
 
-    # 🔔 Ранний лид во второй бот
+    # 🔔 создаём второй бот прямо здесь
+    notify_bot = Bot(token=NOTIFY_BOT_TOKEN)
+
     text = (
         f"🔥 Новый лид\n\n"
         f"Имя: {msg.contact.first_name}\n"
@@ -49,8 +48,8 @@ async def get_contact(msg: types.Message, state: FSMContext, notify_bot: types.B
     )
 
     await notify_bot.send_message(ADMIN_ID, text)
+    await notify_bot.session.close()
 
-    # сохраняем телефон
     await state.update_data(phone=msg.contact.phone_number)
 
     await msg.answer(
@@ -64,9 +63,6 @@ async def get_contact(msg: types.Message, state: FSMContext, notify_bot: types.B
     )
 
 
-# =============================
-# ПАКЕТ
-# =============================
 @router.callback_query(F.data.startswith("pkg_"))
 async def choose_package(callback: types.CallbackQuery, state: FSMContext):
     package = callback.data.replace("pkg_", "")
@@ -92,26 +88,24 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-# =============================
-# ДОПЫ
-# =============================
 @router.callback_query(Booking.waiting_for_addons)
 async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     addons = data.get("addons", [])
 
-    code = None
-    if callback.data == "add_mics":
-        code = "mics"
-    elif callback.data == "add_light":
-        code = "light"
-    elif callback.data == "add_extra":
-        code = "extra"
-    elif callback.data == "addons_done":
+    if callback.data == "addons_done":
         await callback.message.edit_text("Введите дату съёмки — число и месяц:")
         await state.set_state(Booking.waiting_for_date)
         await callback.answer()
         return
+
+    mapping = {
+        "add_mics": "mics",
+        "add_light": "light",
+        "add_extra": "extra",
+    }
+
+    code = mapping.get(callback.data)
 
     if code:
         if code not in addons:
@@ -122,9 +116,6 @@ async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
             await callback.answer("Уже добавлено")
 
 
-# =============================
-# ДАТА
-# =============================
 @router.message(Booking.waiting_for_date)
 async def get_date(msg: types.Message, state: FSMContext):
     await state.update_data(date=msg.text.strip())
@@ -132,9 +123,6 @@ async def get_date(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_name)
 
 
-# =============================
-# ИМЯ
-# =============================
 @router.message(Booking.waiting_for_name)
 async def get_name(msg: types.Message, state: FSMContext):
     await state.update_data(name=msg.text.strip())
@@ -142,9 +130,6 @@ async def get_name(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_phone)
 
 
-# =============================
-# ТЕЛЕФОН
-# =============================
 @router.message(Booking.waiting_for_phone)
 async def get_phone(msg: types.Message, state: FSMContext):
     await state.update_data(phone=msg.text.strip())
@@ -152,9 +137,6 @@ async def get_phone(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_address)
 
 
-# =============================
-# АДРЕС
-# =============================
 @router.message(Booking.waiting_for_address)
 async def get_address(msg: types.Message, state: FSMContext):
     await state.update_data(address=msg.text.strip())
@@ -162,9 +144,6 @@ async def get_address(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_tz)
 
 
-# =============================
-# ТЗ
-# =============================
 @router.message(Booking.waiting_for_tz)
 async def get_tz(msg: types.Message, state: FSMContext):
     await state.update_data(tz=msg.text.strip())
@@ -174,12 +153,12 @@ async def get_tz(msg: types.Message, state: FSMContext):
         data["package"],
         data.get("addons", [])
     )
+
     await state.update_data(price=price)
 
-    addon_codes = data.get("addons", [])
     addons_list = (
-        ", ".join(ADDON_LABELS[c] for c in addon_codes)
-        if addon_codes else "нет"
+        ", ".join(ADDON_LABELS[c] for c in data.get("addons", []))
+        if data.get("addons") else "нет"
     )
 
     await msg.answer(
@@ -198,9 +177,6 @@ async def get_tz(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_confirm)
 
 
-# =============================
-# ПОДТВЕРЖДЕНИЕ
-# =============================
 @router.callback_query(Booking.waiting_for_confirm)
 async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
     if callback.data == "cancel":
@@ -211,10 +187,9 @@ async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
 
-    addon_codes = data.get("addons", [])
     addons_list = (
-        ", ".join(ADDON_LABELS[c] for c in addon_codes)
-        if addon_codes else "нет"
+        ", ".join(ADDON_LABELS[c] for c in data.get("addons", []))
+        if data.get("addons") else "нет"
     )
 
     text = (
