@@ -31,7 +31,7 @@ ADDON_LABELS = {
 
 
 # =============================
-# КОНТАКТ ПОСЛЕ /start
+# КОНТАКТ
 # =============================
 @router.message(Booking.waiting_for_contact)
 async def get_contact(msg: types.Message, state: FSMContext, notify_bot: types.Bot):
@@ -39,7 +39,7 @@ async def get_contact(msg: types.Message, state: FSMContext, notify_bot: types.B
         await msg.answer("Пожалуйста, используйте кнопку для отправки контакта.")
         return
 
-    # 👉 РАННИЙ ЛИД через второй бот
+    # 🔔 Ранний лид во второй бот
     text = (
         f"🔥 Новый лид\n\n"
         f"Имя: {msg.contact.first_name}\n"
@@ -50,7 +50,7 @@ async def get_contact(msg: types.Message, state: FSMContext, notify_bot: types.B
 
     await notify_bot.send_message(ADMIN_ID, text)
 
-    # сохраняем телефон в FSM
+    # сохраняем телефон
     await state.update_data(phone=msg.contact.phone_number)
 
     await msg.answer(
@@ -62,8 +62,6 @@ async def get_contact(msg: types.Message, state: FSMContext, notify_bot: types.B
         "Выберите пакет:",
         reply_markup=packages_kb()
     )
-
-    await state.clear()
 
 
 # =============================
@@ -91,6 +89,7 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
     )
 
     await state.set_state(Booking.waiting_for_addons)
+    await callback.answer()
 
 
 # =============================
@@ -111,6 +110,7 @@ async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
     elif callback.data == "addons_done":
         await callback.message.edit_text("Введите дату съёмки — число и месяц:")
         await state.set_state(Booking.waiting_for_date)
+        await callback.answer()
         return
 
     if code:
@@ -143,7 +143,7 @@ async def get_name(msg: types.Message, state: FSMContext):
 
 
 # =============================
-# ТЕЛЕФОН (если введут вручную)
+# ТЕЛЕФОН
 # =============================
 @router.message(Booking.waiting_for_phone)
 async def get_phone(msg: types.Message, state: FSMContext):
@@ -206,6 +206,7 @@ async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
     if callback.data == "cancel":
         await callback.message.edit_text("Заявка отменена.")
         await state.clear()
+        await callback.answer()
         return
 
     data = await state.get_data()
