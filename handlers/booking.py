@@ -2,7 +2,6 @@ from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import FSInputFile, ReplyKeyboardRemove
-from datetime import datetime
 
 from keyboards.addons import addons_kb
 from keyboards.confirm import confirm_kb
@@ -18,8 +17,6 @@ class Booking(StatesGroup):
     waiting_for_contact = State()
     waiting_for_addons = State()
     waiting_for_date = State()
-    waiting_for_name = State()
-    waiting_for_phone = State()
     waiting_for_address = State()
     waiting_for_tz = State()
     waiting_for_confirm = State()
@@ -48,7 +45,7 @@ async def get_contact(msg: types.Message, state: FSMContext):
 
     await state.update_data(phone=phone)
 
-    # 1️⃣ РАННИЙ ЛИД В GOOGLE
+    # Google early lead
     try:
         append_early_lead(
             name=name,
@@ -56,11 +53,10 @@ async def get_contact(msg: types.Message, state: FSMContext):
             username=username,
             user_id=user_id
         )
-        print("GOOGLE LEAD SAVED")
     except Exception as e:
         print("GOOGLE ERROR:", e)
 
-    # 2️⃣ УВЕДОМЛЕНИЕ ВО ВТОРОЙ БОТ
+    # Второй бот
     try:
         notify_bot = Bot(token=NOTIFY_BOT_TOKEN)
 
@@ -83,10 +79,7 @@ async def get_contact(msg: types.Message, state: FSMContext):
         reply_markup=ReplyKeyboardRemove()
     )
 
-    await msg.answer(
-        "Выберите пакет:",
-        reply_markup=packages_kb()
-    )
+    await msg.answer("Выберите пакет:", reply_markup=packages_kb())
 
     await state.set_state(Booking.waiting_for_addons)
 
@@ -104,15 +97,15 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer_photo(
         photo,
         caption=(
-            "Допы, которые можно добавить:\n\n"
+            "Допы:\n\n"
             "• Петлички — +990 ₽\n"
-            "• Свет (3 источника) — +2900 ₽\n"
+            "• Свет — +2900 ₽\n"
             "• Доп. минута монтажа — +3900 ₽"
         )
     )
 
     await callback.message.answer(
-        "Пакет выбран.\nТеперь добавьте допы или нажмите «Готово»:",
+        "Добавьте допы или нажмите «Готово»:",
         reply_markup=addons_kb()
     )
 
@@ -129,7 +122,7 @@ async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
     addons = data.get("addons", [])
 
     if callback.data == "addons_done":
-        await callback.message.edit_text("Введите дату съёмки — число и месяц:")
+        await callback.message.edit_text("Введите дату съёмки (число и месяц):")
         await state.set_state(Booking.waiting_for_date)
         await callback.answer()
         return
@@ -146,7 +139,7 @@ async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
         if code not in addons:
             addons.append(code)
             await state.update_data(addons=addons)
-            await callback.answer("Добавлено!")
+            await callback.answer("Добавлено")
         else:
             await callback.answer("Уже добавлено")
 
@@ -157,26 +150,6 @@ async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
 @router.message(Booking.waiting_for_date)
 async def get_date(msg: types.Message, state: FSMContext):
     await state.update_data(date=msg.text.strip())
-    await msg.answer("Ваше имя:")
-    await state.set_state(Booking.waiting_for_name)
-
-
-# =============================
-# ИМЯ
-# =============================
-@router.message(Booking.waiting_for_name)
-async def get_name(msg: types.Message, state: FSMContext):
-    await state.update_data(name=msg.text.strip())
-    await msg.answer("Номер телефона:")
-    await state.set_state(Booking.waiting_for_phone)
-
-
-# =============================
-# ТЕЛЕФОН
-# =============================
-@router.message(Booking.waiting_for_phone)
-async def get_phone(msg: types.Message, state: FSMContext):
-    await state.update_data(phone=msg.text.strip())
     await msg.answer("Адрес съёмки:")
     await state.set_state(Booking.waiting_for_address)
 
@@ -216,7 +189,6 @@ async def get_tz(msg: types.Message, state: FSMContext):
         f"Пакет: {data['package']}\n"
         f"Допы: {addons_list}\n"
         f"Дата: {data['date']}\n"
-        f"Имя: {data['name']}\n"
         f"Телефон: {data['phone']}\n"
         f"Адрес: {data['address']}\n"
         f"ТЗ: {data['tz']}\n\n"
@@ -250,7 +222,6 @@ async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
         f"Пакет: {data['package']}\n"
         f"Допы: {addons_list}\n"
         f"Дата: {data['date']}\n"
-        f"Имя: {data['name']}\n"
         f"Телефон: {data['phone']}\n"
         f"Адрес: {data['address']}\n"
         f"ТЗ: {data['tz']}\n\n"
@@ -260,7 +231,7 @@ async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
     await callback.bot.send_message(ADMIN_ID, text)
 
     await callback.message.edit_text(
-        "Заявка создана! Я свяжусь с вами в ближайшее время."
+        "Заявка создана! Я свяжусь с вами."
     )
 
     await state.clear()
