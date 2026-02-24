@@ -9,7 +9,7 @@ def append_early_lead(name, phone, username, user_id):
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
 
     creds = Credentials.from_service_account_file(
-        "google_credentials.json",
+        "/root/ds_bot/google_credentials.json",
         scopes=scopes
     )
 
