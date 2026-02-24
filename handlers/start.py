@@ -1,10 +1,9 @@
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram import Bot
 
-from config import ADMIN_ID, NOTIFY_BOT_TOKEN
+from config import ADMIN_ID
 
 router = Router()
 
@@ -26,11 +25,8 @@ async def start_handler(message: Message, state: FSMContext):
 
 
 @router.message(F.contact)
-async def contact_handler(message: Message, state: FSMContext):
+async def contact_handler(message: Message, bot: Bot, state: FSMContext):
     contact = message.contact
-
-    # создаём экземпляр notify-бота
-    notify_bot = Bot(token=NOTIFY_BOT_TOKEN)
 
     text = (
         f"🔥 Новый лид\n\n"
@@ -40,7 +36,7 @@ async def contact_handler(message: Message, state: FSMContext):
         f"User ID: {message.from_user.id}"
     )
 
-    # отправляем уведомление тебе
-    await notify_bot.send_message(ADMIN_ID, text)
+    # уведомление тебе
+    await bot.send_message(ADMIN_ID, text)
 
     await message.answer("Спасибо! Заявка получена ✅")
