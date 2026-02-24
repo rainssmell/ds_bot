@@ -34,11 +34,23 @@ ADDON_LABELS = {
 # КОНТАКТ ПОСЛЕ /start
 # =============================
 @router.message(Booking.waiting_for_contact)
-async def get_contact(msg: types.Message, state: FSMContext):
+async def get_contact(msg: types.Message, state: FSMContext, notify_bot: types.Bot):
     if not msg.contact:
         await msg.answer("Пожалуйста, используйте кнопку для отправки контакта.")
         return
 
+    # 👉 РАННИЙ ЛИД через второй бот
+    text = (
+        f"🔥 Новый лид\n\n"
+        f"Имя: {msg.contact.first_name}\n"
+        f"Телефон: {msg.contact.phone_number}\n"
+        f"Username: @{msg.from_user.username}\n"
+        f"User ID: {msg.from_user.id}"
+    )
+
+    await notify_bot.send_message(ADMIN_ID, text)
+
+    # сохраняем телефон в FSM
     await state.update_data(phone=msg.contact.phone_number)
 
     await msg.answer(
