@@ -1,64 +1,42 @@
-import os
 import asyncio
 import logging
-from aiohttp import web
-from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
 
-from config import BOT_TOKEN
+from aiogram import Bot, Dispatcher
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
+
+from config import BOT_TOKEN, NOTIFY_BOT_TOKEN
 from handlers.start import router as start_router
 from handlers.booking import router as booking_router
 
-logging.basicConfig(level=logging.INFO)
-
-
-async def healthcheck(request):
-    return web.Response(text="ok")
-
-
-async def start_bot():
-    logging.info("=== ИНИЦИАЛИЗАЦИЯ БОТА ===")
-
-    try:
-        bot = Bot(token=BOT_TOKEN)
-        dp = Dispatcher(storage=MemoryStorage())
-
-        dp.include_router(start_router)
-        dp.include_router(booking_router)
-
-        logging.info("=== POLLING START ===")
-        await dp.start_polling(bot)
-    except Exception as e:
-        logging.exception(f"ОШИБКА В РАБОТЕ ПОЛЛИНГА: {e}")
-        await asyncio.sleep(5)
-        logging.info("=== ПОВТОРНЫЙ ЗАПУСК ПОЛЛИНГА ===")
-        asyncio.create_task(start_bot())
-
 
 async def main():
-    logging.info("=== main() loading ===")
+    logging.basicConfig(level=logging.INFO)
 
-    # HTTP healthcheck для Render
-    app = web.Application()
-    app.router.add_get("/", healthcheck)
+    # основной бот
+    bot = Bot(
+        token=BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+    )
 
-    runner = web.AppRunner(app)
-    await runner.setup()
+    # бот для уведомлений
+    notify_bot = Bot(
+        token=NOTIFY_BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+    )
 
-    port = int(os.getenv("PORT", 10000))
-    site = web.TCPSite(runner, "0.0.0.0", port)
+    dp = Dispatcher()
 
-    await site.start()
-    logging.info(f"=== HTTP healthcheck порт {port} ===")
+    # прокидываем notify_bot в хендлеры
+    dp["notify_bot"] = notify_bot
 
-    # параллельно запускаем бота
-    asyncio.create_task(start_bot())
+    # регистрируем роутеры
+    dp.include_router(start_router)
+    dp.include_router(booking_router)
 
-    # держим процесс живым
-    while True:
-        await asyncio.sleep(3600)
+    # запуск
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    logging.info("=== entry ===")
     asyncio.run(main())
