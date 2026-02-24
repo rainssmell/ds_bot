@@ -1,23 +1,19 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.types import FSInputFile
+from aiogram.types import FSInputFile, ReplyKeyboardRemove
 
 from keyboards.addons import addons_kb
 from keyboards.confirm import confirm_kb
+from keyboards.packages import packages_kb
 from services.calculator import calculate_price
 from config import ADMIN_ID
-
-ADDON_LABELS = {
-    "mics": "Петлички",
-    "light": "Свет",
-    "extra": "Доп. минута монтажа",
-}
 
 router = Router()
 
 
 class Booking(StatesGroup):
+    waiting_for_contact = State()
     waiting_for_addons = State()
     waiting_for_date = State()
     waiting_for_name = State()
@@ -27,15 +23,45 @@ class Booking(StatesGroup):
     waiting_for_confirm = State()
 
 
-# -----------------------------
+ADDON_LABELS = {
+    "mics": "Петлички",
+    "light": "Свет",
+    "extra": "Доп. минута монтажа",
+}
+
+
+# =============================
+# КОНТАКТ ПОСЛЕ /start
+# =============================
+@router.message(Booking.waiting_for_contact)
+async def get_contact(msg: types.Message, state: FSMContext):
+    if not msg.contact:
+        await msg.answer("Пожалуйста, используйте кнопку для отправки контакта.")
+        return
+
+    await state.update_data(phone=msg.contact.phone_number)
+
+    await msg.answer(
+        "Отлично! Теперь выберите пакет съёмки:",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+    await msg.answer(
+        "Выберите пакет:",
+        reply_markup=packages_kb()
+    )
+
+    await state.clear()
+
+
+# =============================
 # ПАКЕТ
-# -----------------------------
+# =============================
 @router.callback_query(F.data.startswith("pkg_"))
 async def choose_package(callback: types.CallbackQuery, state: FSMContext):
     package = callback.data.replace("pkg_", "")
     await state.update_data(package=package, addons=[])
 
-    # одна картинка с допами
     photo = FSInputFile("media/addons.png")
     await callback.message.answer_photo(
         photo,
@@ -47,7 +73,6 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
         )
     )
 
-    # сообщение с кнопками допов
     await callback.message.answer(
         "Пакет выбран.\nТеперь добавьте допы или нажмите «Готово»:",
         reply_markup=addons_kb()
@@ -56,9 +81,9 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(Booking.waiting_for_addons)
 
 
-# -----------------------------
+# =============================
 # ДОПЫ
-# -----------------------------
+# =============================
 @router.callback_query(Booking.waiting_for_addons)
 async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -85,9 +110,9 @@ async def choose_addons(callback: types.CallbackQuery, state: FSMContext):
             await callback.answer("Уже добавлено")
 
 
-# -----------------------------
+# =============================
 # ДАТА
-# -----------------------------
+# =============================
 @router.message(Booking.waiting_for_date)
 async def get_date(msg: types.Message, state: FSMContext):
     await state.update_data(date=msg.text.strip())
@@ -95,9 +120,9 @@ async def get_date(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_name)
 
 
-# -----------------------------
+# =============================
 # ИМЯ
-# -----------------------------
+# =============================
 @router.message(Booking.waiting_for_name)
 async def get_name(msg: types.Message, state: FSMContext):
     await state.update_data(name=msg.text.strip())
@@ -105,9 +130,9 @@ async def get_name(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_phone)
 
 
-# -----------------------------
-# ТЕЛЕФОН
-# -----------------------------
+# =============================
+# ТЕЛЕФОН (если введут вручную)
+# =============================
 @router.message(Booking.waiting_for_phone)
 async def get_phone(msg: types.Message, state: FSMContext):
     await state.update_data(phone=msg.text.strip())
@@ -115,9 +140,9 @@ async def get_phone(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_address)
 
 
-# -----------------------------
+# =============================
 # АДРЕС
-# -----------------------------
+# =============================
 @router.message(Booking.waiting_for_address)
 async def get_address(msg: types.Message, state: FSMContext):
     await state.update_data(address=msg.text.strip())
@@ -125,9 +150,9 @@ async def get_address(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_tz)
 
 
-# -----------------------------
+# =============================
 # ТЗ
-# -----------------------------
+# =============================
 @router.message(Booking.waiting_for_tz)
 async def get_tz(msg: types.Message, state: FSMContext):
     await state.update_data(tz=msg.text.strip())
@@ -161,9 +186,9 @@ async def get_tz(msg: types.Message, state: FSMContext):
     await state.set_state(Booking.waiting_for_confirm)
 
 
-# -----------------------------
+# =============================
 # ПОДТВЕРЖДЕНИЕ
-# -----------------------------
+# =============================
 @router.callback_query(Booking.waiting_for_confirm)
 async def final_confirm(callback: types.CallbackQuery, state: FSMContext):
     if callback.data == "cancel":
