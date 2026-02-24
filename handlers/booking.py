@@ -1,3 +1,4 @@
+from services.google_sheets import append_early_lead
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
