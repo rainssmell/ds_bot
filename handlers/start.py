@@ -23,7 +23,7 @@ async def start(msg: types.Message, state: FSMContext):
     await state.clear()
 
     await msg.answer(
-        "Привет! Перед началом работы отправьте, пожалуйста, ваш контакт.",
+        "Привет! Перед началом работы отправьте, пожалуйста, ваш контакт. Он потребуется для связи с вами. Мы никогда и никому его не передадим.",
         reply_markup=contact_kb()
     )
 
