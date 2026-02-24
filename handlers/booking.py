@@ -41,29 +41,42 @@ async def get_contact(msg: types.Message, state: FSMContext):
         await msg.answer("Пожалуйста, используйте кнопку для отправки контакта.")
         return
 
-    # 🔔 Ранний лид во второй бот
-    notify_bot = Bot(token=NOTIFY_BOT_TOKEN)
+    phone = msg.contact.phone_number
+    name = msg.contact.first_name
+    username = msg.from_user.username
+    user_id = msg.from_user.id
 
-    text = (
-        f"🔥 Новый лид\n\n"
-        f"Имя: {msg.contact.first_name}\n"
-        f"Телефон: {msg.contact.phone_number}\n"
-        f"Username: @{msg.from_user.username}\n"
-        f"User ID: {msg.from_user.id}"
-    )
+    await state.update_data(phone=phone)
 
-    await notify_bot.send_message(ADMIN_ID, text)
-    await notify_bot.session.close()
+    # 1️⃣ РАННИЙ ЛИД В GOOGLE
+    try:
+        append_early_lead(
+            name=name,
+            phone=phone,
+            username=username,
+            user_id=user_id
+        )
+        print("GOOGLE LEAD SAVED")
+    except Exception as e:
+        print("GOOGLE ERROR:", e)
 
-    # 🟢 Запись в Google Sheets
-    append_early_lead(
-        name=msg.contact.first_name,
-        phone=msg.contact.phone_number,
-        username=msg.from_user.username,
-        user_id=msg.from_user.id
-    )
+    # 2️⃣ УВЕДОМЛЕНИЕ ВО ВТОРОЙ БОТ
+    try:
+        notify_bot = Bot(token=NOTIFY_BOT_TOKEN)
 
-    await state.update_data(phone=msg.contact.phone_number)
+        text = (
+            f"🔥 Новый лид\n\n"
+            f"Имя: {name}\n"
+            f"Телефон: {phone}\n"
+            f"Username: @{username}\n"
+            f"User ID: {user_id}"
+        )
+
+        await notify_bot.send_message(ADMIN_ID, text)
+        await notify_bot.session.close()
+
+    except Exception as e:
+        print("NOTIFY BOT ERROR:", e)
 
     await msg.answer(
         "Отлично! Теперь выберите пакет съёмки:",
@@ -75,6 +88,8 @@ async def get_contact(msg: types.Message, state: FSMContext):
         reply_markup=packages_kb()
     )
 
+    await state.set_state(Booking.waiting_for_addons)
+
 
 # =============================
 # ПАКЕТ
@@ -85,6 +100,7 @@ async def choose_package(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(package=package, addons=[])
 
     photo = FSInputFile("media/addons.png")
+
     await callback.message.answer_photo(
         photo,
         caption=(
